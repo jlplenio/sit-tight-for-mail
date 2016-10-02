@@ -1,0 +1,8 @@
+{
+  "search1": {
+    "email": "recipient@mail.com",
+    "keywords": ["Cat", "Dog", "Toy","Tesla"]
+  },
+  "search2": {},
+  "search3": {}
+}
