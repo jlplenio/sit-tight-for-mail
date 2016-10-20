@@ -9,6 +9,7 @@ import os
 import json
 import pymysql
 import time
+import sqlite3
 
 # better to use while open here?
 json_data=open(os.path.join(os.getcwd(), 'config.json')).read()
@@ -22,6 +23,22 @@ db = pymysql.connect(host=json_config['sql']['Host'], port=int(json_config['sql'
                      db=json_config['sql']['DB'], charset='utf8')
 dbcursor = db.cursor()
 
+"""
+#sqlite3 - Values placeholder need to be ? instead of %s ---> VALUES (?, ?, ?)
+db = sqlite3.connect('example.db')
+dbcursor = db.cursor()
+dbcursor.execute('''CREATE TABLE IF NOT EXISTS mydealz (
+  id INTEGER PRIMARY KEY,
+  dealid INTEGER,
+  titel TEXT,
+  stext TEXT,
+  ltext TEXT,
+  dlink TEXT,
+  hlink TEXT,
+  datum TEXT,
+  price INTEGER)
+  ''')
+ """
 
 class Bot:
 
@@ -167,9 +184,9 @@ class MydealzBot(Bot):
             print("Found: " + deal['titel'] + " ------> " + str(deal['price']))
             dbcursor.execute(self.i_deal, (
                 None, deal['titel'], deal['stext'], None, deal['dlink'], deal['hlink'],
-                time.strftime('%Y-%m-%d %H:%M:%S'),float(deal['price']),deal['dealid'])) #meh
+                time.strftime('%Y-%m-%d %H:%M:%S'), deal['price'],deal['dealid'])) #meh
             i += 1
-        #db.commit()
+        db.commit()
         print(str(i) + " neue Dealz eingetragen")
 
 
@@ -251,11 +268,15 @@ def main():
         bot.send_mail(*sendme)
 
 
+main()
+
+
+"""
 bot = PriceChecker()
 soup = bot.fetch_content()
 processed = bot.process_soup(soup)
 bot.filter_content(processed)
-
+"""
 
 
 
