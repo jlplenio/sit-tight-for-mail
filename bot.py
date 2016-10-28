@@ -8,11 +8,13 @@ from requests import get
 import os
 import json
 import pymysql
+import re
 import time
-import sqlite3
+
+# import sqlite3
 
 # better to use while open here?
-json_data=open(os.path.join(os.getcwd(), 'config.json')).read()
+json_data = open(os.path.join(os.getcwd(), 'realconfig.json')).read()
 json_config = json.loads(json_data)
 
 # ToDo: Close DB connection
@@ -40,8 +42,9 @@ dbcursor.execute('''CREATE TABLE IF NOT EXISTS mydealz (
   ''')
  """
 
-class Bot:
 
+
+class Bot:
     def get_links(self):
         raise NotImplementedError()
 
@@ -52,13 +55,12 @@ class Bot:
         """
 
         links = self.get_links()
-        linklist = []
+        souplist = []
         for link in links:
             content = get(link)
             print(content)
-            linklist.append(BeautifulSoup(content.content, "html.parser"))
-        return linklist
-
+            souplist.append(BeautifulSoup(content.content, "html.parser"))
+        return souplist
 
     def process_soup(self, soup):
         raise NotImplementedError()
@@ -93,16 +95,16 @@ class Bot:
 
 
 class MydealzBot(Bot):
-
     # Select&Insert-Statements
     s_latestdealids = "SELECT `dealid` FROM mydealz ORDER by id desc limit 30"
     i_deal = """ INSERT INTO `mydealz`(`id`, `titel`, `stext`, `ltext`, `dlink`, `hlink`, `datum`, `price`, `dealid`)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """
 
     # better to use while open?
-    json_data = open(os.path.join(os.getcwd(), 'mydealzsearches.json')).read()
-    json_searches = {i: j for i, j in json.loads(json_data).items() if j != {}} #Dict comprehension BITCH
-    #json_searches = collections.OrderedDict(json_searches)
+    json_data = open(os.path.join(os.getcwd(), 'realmydealzsearches.json')).read()
+    json_searches = {i: j for i, j in json.loads(json_data).items() if j != {}}  # Dict comprehension BITCH
+
+    # json_searches = collections.OrderedDict(json_searches)
 
     def select_from_db(self):
         dbcursor.execute(self.s_latestdealids)
@@ -117,20 +119,19 @@ class MydealzBot(Bot):
 
     def process_soup(self, soup):
 
-        #soup[0] dirty dirty
+        # soup[0] dirty dirty
         deals = soup[0].find_all('article', class_='thread thread--deal thread--type-list space--mt-2')
         alldealz = []
 
         for deal in deals:
-
             # MakeMoreBeautiful IfElse
             titel = deal.find('a', class_='cept-tt linkPlain space--r-1 space--v-1').text
             dealid = deal['id'][7:]
             dlink = deal.find('a', class_='cept-tt linkPlain space--r-1 space--v-1')['href']
             stext = deal.find('div', class_='userHtml overflow--wrap-break space--t-2 space--b-1 hide--toW3').text
             hlink = deal.find('a', target='_blank')['href'] if deal.find('a', target='_blank') else None
-            price = deal.find('span', class_='thread-price').text[:-1].replace(',','.') if deal.find('span',
-                                                                                    class_='thread-price') else 0
+            price = deal.find('span', class_='thread-price').text[:-1].replace(',', '.') if deal.find('span',
+                                                                                                      class_='thread-price') else 0
             # stext = "".join([s for s in stext.strip().splitlines(True) if s.strip()]),
 
 
@@ -147,7 +148,7 @@ class MydealzBot(Bot):
 
     def filter_content(self, deals):
         latest20 = self.select_from_db()
-        neuedealz = [deal for deal in deals if deal['dealid'] not in [str(olddealid) for olddealid in latest20]] #meh
+        neuedealz = [deal for deal in deals if deal['dealid'] not in [str(olddealid) for olddealid in latest20]]  # meh
         return neuedealz
 
     def worth_sending(self, neuedealz, search):
@@ -184,41 +185,36 @@ class MydealzBot(Bot):
             print("Found: " + deal['titel'] + " ------> " + str(deal['price']))
             dbcursor.execute(self.i_deal, (
                 None, deal['titel'], deal['stext'], None, deal['dlink'], deal['hlink'],
-                time.strftime('%Y-%m-%d %H:%M:%S'), deal['price'],deal['dealid'])) #meh
+                time.strftime('%Y-%m-%d %H:%M:%S'), deal['price'], deal['dealid']))  # meh
             i += 1
         db.commit()
         print(str(i) + " neue Dealz eingetragen")
 
 
 class PriceChecker(Bot):
+    def __init__(self):
+
+        with open(os.path.join(os.getcwd(), 'pricesearches.json')) as file:
+            json_data = file.read()
+            self.json_searches = json.loads(json_data)
 
     """
-    CREATE TABLE `pricechecker` ( `id` INT NOT NULL AUTO_INCREMENT, `name` VARCHAR(100) NOT NULL , `price`  FLOAT NOT NULL , `date` DATE NOT NULL , PRIMARY KEY (`id`)) ENGINE = InnoDB;
-
-    Weil Bot durch MydealzBot darauf getrimmt ist immer nur eine URL zu durchsuchen und
-    dann nachträglich auf Keywords zu prüfen ist es super schwierig mehrere pricesearches
-    auf unterschiedlichen seiten zu machen ... sehr hässlich bislang, da ich auf die
-    reihenfolge der listen und dicts baue
-
-    Und grrrrr an das Interface halten, wie ne Zwangsjacke
+    CREATE TABLE `pricechecker` ( `id` INT NOT NULL AUTO_INCREMENT, `name` VARCHAR(100) NOT NULL , `price`
+    FLOAT NOT NULL , `date` DATE NOT NULL , PRIMARY KEY (`id`)) ENGINE = InnoDB;
     """
 
     # Select&Insert-Statements
     s_latestprice = """SELECT `price` FROM `pricechecker` WHERE `name` = %s ORDER by `id` desc limit 1"""
     i_price = """ INSERT INTO `pricechecker`(`id`, `name`, `price`, `date`) VALUES (%s,%s,%s,%s) """
 
-    # better to use while open?
-    json_data = open(os.path.join(os.getcwd(), 'pricesearches.json')).read()
-    json_searches = {i: j for i, j in json.loads(json_data).items() if j != {}} #Dict comprehension BITCH
-
     def select_from_db(self):
         dbprices = []
         for search in self.json_searches:
-                name = self.json_searches[search]['name']
-                dbcursor.execute(self.s_latestprice, name)
-                price = dbcursor.fetchone()
-                price = price[0] if price else None
-                dbprices.append(price)
+            name = search['name']
+            dbcursor.execute(self.s_latestprice, name)
+            price = dbcursor.fetchone()
+            price = price[0] if price else None
+            dbprices.append(price)
         return dbprices
 
     def worth_sending(self, items, search):
@@ -233,23 +229,28 @@ class PriceChecker(Bot):
     def get_links(self):
         linklist = []
         for search in self.json_searches:
-                linklist.append(self.json_searches[search]['url'])
+            linklist.append(search['url'])
         return linklist
 
     def process_soup(self, souplist):
         priceslist = []
-        i = 0
-        #kA, wie ich über souplist iteriere, er cucked mich
-        for search in self.json_searches:
-            price = souplist[i].find(self.json_searches[search]['tag'], class_=self.json_searches[search]['class']).contents[0]
-            priceslist.append(float(price))
-            i += 1
+        for search, soup in zip(self.json_searches, souplist):
+            price = soup.find(search['tag'], search["att"])
+            price = price.contents[0] if price else "0"
+            match = re.match("^[\d\.]+$", price)
+            priceslist.append(float(price) if match else 0)
         return priceslist
 
-    def filter_content(self, price):
-        print(self.select_from_db())
-        print(price)
-        # Continue
+
+    def filter_content(self, prices):
+        returndict = {}
+        for search, price, old_price in zip(self.json_searches, prices, self.select_from_db()):
+            if price != old_price:
+                returndict[search['name']] = price
+        return returndict
+
+
+    # Fülle .insert_in_db
 
 
 def main():
@@ -257,7 +258,7 @@ def main():
     soup = bot.fetch_content()
     processed = (bot.process_soup(soup))
     filtered = bot.filter_content(processed)
-    bot.insert_in_db(filtered)
+    # bot.insert_in_db(filtered)
     sendmenow = []
     for search in bot.json_searches:
         tosendlist = bot.worth_sending(filtered, bot.json_searches[search])
@@ -265,21 +266,14 @@ def main():
             subject, body = bot.prepare_mail(*item)
             sendmenow.append([bot.json_searches[search]['email'], subject, body])
     for sendme in sendmenow:
-        bot.send_mail(*sendme)
+        pass
+        # bot.send_mail(*sendme)
+
+# main()
 
 
-main()
 
-
-"""
 bot = PriceChecker()
 soup = bot.fetch_content()
 processed = bot.process_soup(soup)
 bot.filter_content(processed)
-"""
-
-
-
-
-
-
