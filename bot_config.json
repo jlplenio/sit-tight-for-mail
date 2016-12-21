@@ -1,0 +1,16 @@
+{
+    "mail": {
+      "Host": "mail.org",
+      "Port": "587",
+      "User": "User",
+      "Pass": "Pass",
+      "From": "mail.org"
+    },
+    "sql": {
+      "Host": "localhost",
+      "Port": "3306",
+      "User": "User",
+      "Pass": "Pass",
+      "DB": "scriptbot"
+    }
+}
