@@ -43,13 +43,13 @@ class MydealzBot(Bot):
 
     def process_soup(self, soup):
 
-        deals = soup.find_all('article', class_='thread thread--deal thread--type-list space--mt-2')
+        deals = soup.find_all('article', class_='thread cept-sale-event-thread thread--deal thread--type-list space--mt-2 vwo-thread--type-list')
         alldealz = []
 
         for deal in deals:
-            titel = deal.find('a', class_='cept-tt linkPlain space--r-1 space--v-1').text
+            titel = deal.find('a', class_='vwo-thread-title cept-tt linkPlain space--r-1 space--v-1').text
             dealid = deal['id'][7:]
-            dlink = deal.find('a', class_='cept-tt linkPlain space--r-1 space--v-1')['href']
+            dlink = deal.find('a', class_='vwo-thread-title cept-tt linkPlain space--r-1 space--v-1')['href']
             stext = deal.find('div', class_='userHtml overflow--wrap-break space--t-2 space--b-1 hide--toW3').text
             hlink = deal.find('a', target='_blank')['href'] if deal.find('a', target='_blank') else None
             price = deal.find('span', class_='thread-price').text[:-1].replace(',', '.') if deal.find('span', class_='thread-price') else 0
@@ -79,7 +79,7 @@ class MydealzBot(Bot):
                     time.strftime('%Y-%m-%d %H:%M:%S'), deal['price'], deal['dealid']))  # meh
                 i += 1
             db.commit()
-            print(str(i) + " neue Dealz eingetragen")
+            print(str(i) + " neue Dealz eingetragen", time.strftime('%Y-%m-%d %H:%M:%S'))
 
     def worth_sending(self, search, neuedealz):
 

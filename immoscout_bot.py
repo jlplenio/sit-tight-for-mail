@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS `immoscout` (
 
 class ImmoscoutBot(Bot):
     # Select&Insert-Statements
-    s_latestimmos = """SELECT `immoid` FROM `immoscout` WHERE searchid = %s  ORDER BY id DESC LIMIT 30 """
+    s_latestimmos = """SELECT `immoid` FROM `immoscout` WHERE searchid = %s  ORDER BY id DESC"""
     i_immo = """ INSERT INTO `immoscout`( id, searchid ,immoid, titel, miete, qm, zimmer, adresse, date, link)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
 
@@ -51,14 +51,13 @@ class ImmoscoutBot(Bot):
             # Why did we never care about , or . in mydealz, but now it is important?!
 
             immoid = immo.find('a', class_='result-list-entry__brand-title-container')['data-go-to-expose-id']
-            titel = immo.find('h5',
-                              class_='result-list-entry__brand-title font-h6 onlyLarge nine-tenths font-ellipsis data-ng-non-bindable').text  # titel NEU weg-regexen
+            titel = immo.find('h5', class_=re.compile('result-list-entry__brand-title font-h6 onlyLarge nine-tenths*')).text
             miete = re.match("[\d\,]+", immo.find_all('dd',
-                                                      class_='font-nowrap font-line-xs')[0].text.strip()).group(0)  # what is this?
+                                                      class_='font-nowrap font-line-xs')[0].text.strip()).group(0)
             qm = re.match("[\d\,]+", immo.find_all('dd',
-                                                   class_='font-nowrap font-line-xs')[1].text.strip()).group(0)  # what is this?
+                                                   class_='font-nowrap font-line-xs')[1].text.strip()).group(0)
             zimmer = re.match("[\d\,]+", immo.find_all('dd',
-                                                       class_='font-nowrap font-line-xs')[2].text.strip()).group(0)  # what is this?
+                                                       class_='font-nowrap font-line-xs')[2].text.strip()).group(0)
             adresse = immo.find('span', class_='font-ellipsis font-line-s font-s').text
             link = "https://www.immobilienscout24.de/expose/" + immoid
 
@@ -82,13 +81,12 @@ class ImmoscoutBot(Bot):
     def insert_in_db(self, search, immos):
         i = 0
         for immo in immos:
-            print("Found:", immo['titel'][:50], " ------> ", immo['qm'])
             dbcursor.execute(self.i_immo, (
                 None, search, immo['immoid'], immo['titel'], immo['miete'], immo['qm'],
                 immo['zimmer'], immo['adresse'], time.strftime('%Y-%m-%d %H:%M:%S'), immo['link']))
             i += 1
         db.commit()
-        print(str(i) + " neue Immos eingetragen")
+        print(str(i) + " neue Immos eingetragen",time.strftime('%Y-%m-%d %H:%M:%S'))
 
     def worth_sending(self, search, immos):
         # Every immo found is worth sending
@@ -97,6 +95,5 @@ class ImmoscoutBot(Bot):
     def prepare_mail(self, immo):
         body = immo['titel'] + "\n" + immo['adresse'] + "\n" + immo['miete'] + " € - " + immo['qm'] + " qm - " + immo[
             'zimmer'] + " Zimmer" + "\n\n" + immo['link']
-        print(body)
         subject = "[ImmoBot] " + immo['miete'] + "€ - " + immo['titel'][:60]
         return subject, body

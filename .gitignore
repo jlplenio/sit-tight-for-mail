@@ -1,0 +1,6 @@
+.idea/
+__pycache__/
+immoscout_config.json
+pricecheck_config.json
+bot_config.json
+mydealz_config.json
