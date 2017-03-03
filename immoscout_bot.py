@@ -89,8 +89,8 @@ class ImmoscoutBot(Bot):
         print(str(i) + " neue Immos eingetragen",time.strftime('%Y-%m-%d %H:%M:%S'))
 
     def worth_sending(self, search, immos):
-        # Every immo found is worth sending
-        return (list(immos))
+        worth = [immo for immo in immos if "senior" not in immo['titel'].lower()]
+        return worth
 
     def prepare_mail(self, immo):
         body = immo['titel'] + "\n" + immo['adresse'] + "\n" + immo['miete'] + " € - " + immo['qm'] + " qm - " + immo[
