@@ -1,26 +1,17 @@
 import json
 import os
 import time
+import re
 
 from collections import OrderedDict
-from bot import Bot, db, dbcursor  # funky import working, acceptable?
-
-"""MySQL table creation
-CREATE TABLE IF NOT EXISTS `mydealz` (
-`id` int(11) NOT NULL AUTO_INCREMENT,
-  `titel` varchar(200) NOT NULL,
-  `stext` varchar(250) NOT NULL,
-  `ltext` longtext,
-  `dlink` varchar(250) DEFAULT NULL,
-  `hlink` varchar(250) DEFAULT NULL,
-  `datum` datetime DEFAULT NULL,
-  `dealid` int(11) DEFAULT NULL,
-  `price` int(11) DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB;
-"""
+from bot import Bot, db, dbcursor
 
 class MydealzBot(Bot):
+    """
+    Crawls mydealz deals-new page, inserts deals into db and checks against searchwords.
+
+    """
+
     # Select&Insert-Statements
     s_latestdealids = "SELECT `dealid` FROM mydealz ORDER by id desc limit 30"
     i_deal = """ INSERT INTO `mydealz`(`id`, `titel`, `stext`, `ltext`, `dlink`, `hlink`, `datum`, `price`, `dealid`)
@@ -43,25 +34,25 @@ class MydealzBot(Bot):
 
     def process_soup(self, soup):
 
-        deals = soup.find_all('article', class_='thread cept-sale-event-thread thread--deal thread--type-list space--mt-2 vwo-thread--type-list')
+        deals = soup.find_all('article', class_='thread thread--type-list thread--deal')
         alldealz = []
 
         for deal in deals:
-            titel = deal.find('a', class_='vwo-thread-title cept-tt linkPlain space--r-1 space--v-1').text
+            titel = deal.find('a', class_='cept-tt thread-link linkPlain thread-title--list').text
             dealid = deal['id'][7:]
-            dlink = deal.find('a', class_='vwo-thread-title cept-tt linkPlain space--r-1 space--v-1')['href']
-            stext = deal.find('div', class_='userHtml overflow--wrap-break space--t-2 space--b-1 hide--toW3').text
-            hlink = deal.find('a', target='_blank')['href'] if deal.find('a', target='_blank') else None
-            price = deal.find('span', class_='thread-price').text[:-1].replace(',', '.') if deal.find('span', class_='thread-price') else 0
+            dlink = deal.find('a', class_='cept-tt thread-link linkPlain thread-title--list')['href']
+            stext = ""
+            #stext = deal.find('div', class_='cept-description-container overflow--wrap-break size--all-s size--fromW3-m').text
+            hlink = deal.find('a', class_=re.compile('cept-dealBtn boxAlign-jc--all-c space--h-3 width--all-12 btn btn--mode-primary.*'))['href'] if deal.find('a', target='_blank') else None
+            price = deal.find('span', class_='thread-price text--b vAlign--all-tt cept-tp size--all-l size--fromW3-xl').text[:-1].replace(',', '.') if deal.find('span', class_='thread-price') else ""
             alldealz.append({
-                'titel': titel,
+                'titel': titel.lstrip(),
                 'dealid': dealid,
                 'stext': stext,
                 'dlink': dlink,
                 'hlink': hlink,
                 'price': price
             })
-
         return list(reversed(alldealz))
 
     def filter_content(self, search, deals):
@@ -73,7 +64,6 @@ class MydealzBot(Bot):
         if search == list(self.json_searches.keys())[-1]:
             i = 0
             for deal in datadict:
-                # print("Found: " + deal['titel'] + " ------> " + str(deal['price']))
                 dbcursor.execute(self.i_deal, (
                     None, deal['titel'], deal['stext'], None, deal['dlink'], deal['hlink'],
                     time.strftime('%Y-%m-%d %H:%M:%S'), deal['price'], deal['dealid']))  # meh
@@ -101,6 +91,23 @@ class MydealzBot(Bot):
 
     def prepare_mail(self, item):
         keyword, deal = item
-        body = deal['titel'] + "\n\n" + deal['stext'] + "\n\n" + deal['dlink']
-        subject = "[MyDealBot] found '" + keyword + "' für " + deal['price'] + " - " + deal['titel'][:40]
+        body = str(deal['titel']) + "\n\n" + str(deal['stext']) + "\n" + str(deal['dlink']) + "\n" + str(deal['hlink']) + "\n\n" + "Einen wundervollen Tag, bye"
+        subject = "[MyDealB07] found '" + keyword + "' für " + deal['price'] + " - " + deal['titel'][:40]
         return subject, body
+
+
+
+"""MySQL table creation
+CREATE TABLE IF NOT EXISTS `mydealz` (
+`id` int(11) NOT NULL AUTO_INCREMENT,
+  `titel` varchar(200) NOT NULL,
+  `stext` varchar(250) NOT NULL,
+  `ltext` longtext,
+  `dlink` varchar(250) DEFAULT NULL,
+  `hlink` varchar(250) DEFAULT NULL,
+  `datum` datetime DEFAULT NULL,
+  `dealid` int(11) DEFAULT NULL,
+  `price` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB;
+"""
