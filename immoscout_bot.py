@@ -5,21 +5,6 @@ import re
 
 from bot import Bot, dbcursor, db  # funky import working?
 
-""" MySQL table creation
-CREATE TABLE IF NOT EXISTS `immoscout` (
-`id` int(11) NOT NULL AUTO_INCREMENT,
-  `searchid` varchar(10) NOT NULL,
-  `immoid` int(11) NOT NULL,
-  `titel` varchar(200) DEFAULT NULL,
-  `miete` float DEFAULT NULL,
-  `qm` float DEFAULT NULL,
-  `zimmer` float DEFAULT NULL,
-  `adresse` varchar(200) DEFAULT NULL,
-  `date` datetime NOT NULL,
-  `link` varchar(200) DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB;
-"""
 
 class ImmoscoutBot(Bot):
     # Select&Insert-Statements
@@ -47,26 +32,32 @@ class ImmoscoutBot(Bot):
         allimmos = []
 
         for immo in immos:
-            # print(float(qm.replace(',', '.')), type(qm))
-            # Why did we never care about , or . in mydealz, but now it is important?!
 
             immoid = immo.find('a', class_='result-list-entry__brand-title-container')['data-go-to-expose-id']
-            titel = immo.find('h5', class_=re.compile('result-list-entry__brand-title font-h6 onlyLarge nine-tenths*')).text
-            miete = re.match("[\d\,]+", immo.find_all('dd',
-                                                      class_='font-nowrap font-line-xs')[0].text.strip()).group(0)
-            qm = re.match("[\d\,]+", immo.find_all('dd',
-                                                   class_='font-nowrap font-line-xs')[1].text.strip()).group(0)
-            zimmer = re.match("[\d\,]+", immo.find_all('dd',
-                                                       class_='font-nowrap font-line-xs')[2].text.strip()).group(0)
-            adresse = immo.find('span', class_='font-ellipsis font-line-s font-s').text
+            titel = immo.find('h5',
+                              class_=re.compile('result-list-entry__brand-title font-h6 onlyLarge nine-tenths*')).text
+
+            miete_qm_zimmer = [i.text for i in immo.find_all('dd', class_='font-nowrap font-line-xs')]
+
+            if len(miete_qm_zimmer) != 3:  # check if all three items found
+                print("### ImmoscoutBot - 1 Immo SKIPPED !")
+                continue
+
+            else:
+                miete = re.match("[\d,]+", miete_qm_zimmer[0].strip()).group(0)
+                qm = re.match("[\d,]+", miete_qm_zimmer[1].strip()).group(0)
+                zimmer = re.match("[\d,]+", miete_qm_zimmer[2].strip()).group(0)
+
+            adresse = immo.find('button', class_='button-link link-internal result-list-entry__map-link').text
+
             link = "https://www.immobilienscout24.de/expose/" + immoid
 
             allimmos.append({
                 'immoid': immoid,
                 'titel': titel,
-                'miete': miete.replace(',', '.'),
-                'qm': qm.replace(',', '.'),
-                'zimmer': zimmer.replace(',', '.'),
+                'miete': miete.replace(".", "").replace(',', '.'),  # delete dots, then replace comma with dots
+                'qm': qm.replace(".", "").replace(',', '.'),
+                'zimmer': zimmer.replace(".", "").replace(',', '.'),
                 'adresse': adresse,
                 'link': link,
             })
@@ -86,7 +77,7 @@ class ImmoscoutBot(Bot):
                 immo['zimmer'], immo['adresse'], time.strftime('%Y-%m-%d %H:%M:%S'), immo['link']))
             i += 1
         db.commit()
-        print(str(i) + " neue Immos eingetragen",time.strftime('%Y-%m-%d %H:%M:%S'))
+        print(str(i) + " neue Immos eingetragen", time.strftime('%Y-%m-%d %H:%M:%S'))
 
     def worth_sending(self, search, immos):
         worth = [immo for immo in immos if "senior" not in immo['titel'].lower()]
@@ -95,5 +86,22 @@ class ImmoscoutBot(Bot):
     def prepare_mail(self, immo):
         body = immo['titel'] + "\n" + immo['adresse'] + "\n" + immo['miete'] + " € - " + immo['qm'] + " qm - " + immo[
             'zimmer'] + " Zimmer" + "\n\n" + immo['link']
-        subject = "[ImmoBot] " + immo['miete'] + "€ - " + immo['titel'][:60]
+        subject = "[ImmoB07] " + immo['miete'] + "€ - " + immo['titel'][:60]
         return subject, body
+
+
+""" MySQL table creation
+CREATE TABLE IF NOT EXISTS `immoscout` (
+`id` int(11) NOT NULL AUTO_INCREMENT,
+  `searchid` varchar(10) NOT NULL,
+  `immoid` int(11) NOT NULL,
+  `titel` varchar(200) DEFAULT NULL,
+  `miete` float DEFAULT NULL,
+  `qm` float DEFAULT NULL,
+  `zimmer` float DEFAULT NULL,
+  `adresse` varchar(200) DEFAULT NULL,
+  `date` datetime NOT NULL,
+  `link` varchar(200) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB;
+"""
