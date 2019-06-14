@@ -1,9 +1,9 @@
 import json
 import os
-import time
 import re
+import time
 
-from bot import Bot, dbcursor, db  # funky import working?
+from bot import Bot, dbcursor, db
 
 
 class ImmoscoutBot(Bot):
