@@ -1,9 +1,16 @@
+2019.06.14:
+
+Changes:
+- new project structure 
+
 2016.12.21:
+
 Changes:
 - new structure
 - immoscout and mydealz working
 
 2016.10.04:
+
 Changes:
 - os.path.join, cross platform
 - Interface order
